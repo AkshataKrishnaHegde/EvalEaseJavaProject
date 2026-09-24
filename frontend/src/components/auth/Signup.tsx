@@ -1,0 +1,359 @@
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { User, Lock, Mail, UserPlus, XCircle } from "lucide-react";
+
+const Signup = ({ setUser }) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [message, setMessage] = useState({
+    type: "",
+    text: "",
+  });
+
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // Show success/error message
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+
+    setTimeout(() => {
+      setMessage({ type: "", text: "" });
+    }, 3000);
+  };
+
+  // Validate password
+  const validatePassword = (password) => {
+    if (password.length < 6) {
+      return "Password must be at least 6 characters long.";
+    }
+
+    if (!/[A-Za-z]/.test(password)) {
+      return "Password must contain at least one letter.";
+    }
+
+    if (!/[0-9]/.test(password)) {
+      return "Password must contain at least one number.";
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate password
+    const passwordError = validatePassword(formData.password);
+
+    if (passwordError) {
+      showMessage("error", passwordError);
+      return;
+    }
+
+    // Check password confirmation
+    if (formData.password !== formData.confirmPassword) {
+      showMessage("error", "Passwords do not match!");
+      return;
+    }
+
+    // Payload expected by SignupRequest.java
+    const payload = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+    };
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SERVER_PORT}/api/auth/signup`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      // Handle signup failure
+      if (!res.ok) {
+        const errorText = await res.text();
+
+        let errorMessage = "Signup failed. Please try again.";
+
+        try {
+          const errorData = JSON.parse(errorText);
+
+          errorMessage =
+            errorData.message ||
+            errorData ||
+            errorText ||
+            "Signup failed. Please try again.";
+        } catch {
+          errorMessage =
+            errorText ||
+            res.statusText ||
+            "Signup failed. Please try again.";
+        }
+
+        showMessage("error", errorMessage);
+        return;
+      }
+
+      // Successful signup
+      const authResponse = await res.json();
+
+      console.log("Signup successful:", authResponse);
+
+      /*
+       * Backend returns:
+       * {
+       *   token,
+       *   id,
+       *   name,
+       *   email,
+       *   role
+       * }
+       */
+
+      // Store JWT token
+      localStorage.setItem("token", authResponse.token);
+
+      // Store user information
+      localStorage.setItem("employeeId", authResponse.id);
+      localStorage.setItem("employeeName", authResponse.name);
+      localStorage.setItem("userEmail", authResponse.email);
+      localStorage.setItem("userType", authResponse.role);
+
+      // Store complete logged-in user
+      localStorage.setItem(
+        "loggedInUser",
+        JSON.stringify({
+          id: authResponse.id,
+          name: authResponse.name,
+          email: authResponse.email,
+          role: authResponse.role,
+        })
+      );
+
+      // Update React application state
+      setUser({
+        id: authResponse.id,
+        name: authResponse.name,
+        email: authResponse.email,
+        role: authResponse.role,
+      });
+
+      showMessage("success", "Account created successfully!");
+
+      // Navigate based on role returned by backend
+      if (authResponse.role === "ADMIN") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/employee/dashboard");
+      }
+    } catch (error) {
+      console.error("Signup failed:", error);
+
+      showMessage(
+        "error",
+        "Signup failed. Network error or server unreachable. Please try again."
+      );
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-100 font-sans">
+      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-2xl shadow-xl">
+
+        {/* Header */}
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 bg-green-600 rounded-full flex items-center justify-center shadow-lg">
+            <UserPlus className="h-8 w-8 text-white" />
+          </div>
+
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            Join EvalEase
+          </h2>
+
+          <p className="mt-2 text-sm text-gray-600">
+            Create your account
+          </p>
+        </div>
+
+        {/* Success / Error Message */}
+        {message.text && (
+          <div
+            className={`p-4 rounded-lg flex items-center justify-between ${
+              message.type === "error"
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
+            }`}
+          >
+            <p className="text-sm font-medium">
+              {message.text}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setMessage({ type: "", text: "" })}
+              className="ml-4"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Signup Form */}
+        <form
+          className="mt-8 space-y-6"
+          onSubmit={handleSubmit}
+        >
+          <div className="space-y-4">
+
+            {/* Name */}
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Full Name
+              </label>
+
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+
+                <input
+                  id="name"
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-150 ease-in-out"
+                  placeholder="Enter your full name"
+                />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Email
+              </label>
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+
+                <input
+                  id="email"
+                  type="email"
+                  name="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-150 ease-in-out"
+                  placeholder="Enter your email"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Password
+              </label>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+
+                <input
+                  id="password"
+                  type="password"
+                  name="password"
+                  required
+                  minLength={6}
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-150 ease-in-out"
+                  placeholder="Enter your password"
+                />
+              </div>
+
+              <p className="mt-1 text-xs text-gray-500">
+                Must be at least 6 characters and contain a letter and a number.
+              </p>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Confirm Password
+              </label>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-150 ease-in-out"
+                  placeholder="Confirm your password"
+                />
+              </div>
+            </div>
+
+          </div>
+
+          {/* Create Account Button */}
+          <button
+            type="submit"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-lg font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 ease-in-out transform hover:scale-105"
+          >
+            Create Account
+          </button>
+
+          {/* Login Link */}
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="text-green-600 hover:text-green-500 font-medium transition duration-150 ease-in-out"
+              >
+                Sign in
+              </Link>
+            </p>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;
