@@ -18,7 +18,7 @@ public class CorsConfig {
 
         configuration.setAllowedOrigins(
                 List.of("http://localhost:8081",
-                      "https://evaleasejavaproject.onrender.com")
+                      "https://*.vercel.app")
         );
 
         configuration.setAllowedMethods(
