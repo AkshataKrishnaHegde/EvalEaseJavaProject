@@ -17,7 +17,8 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:8081")
+                List.of("http://localhost:8081",
+                      "https://evaleasejavaproject.onrender.com")
         );
 
         configuration.setAllowedMethods(
